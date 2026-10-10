@@ -24,3 +24,6 @@ logs/
 .DS_Store
 .idea/
 .vscode/
+
+# Raw dataset CSVs (download SwitchLingua yourself)
+*.csv
