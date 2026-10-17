@@ -33,7 +33,7 @@ Asks an LLM, given only a text prefix, whether the next token switches language
 | ko | Korean | fr | French | ms | Malay |
 | hi | Hindi (Devanagari + romanized Hinglish) | de | German | tl | Filipino |
 
-The shared samples are already committed in `samples/` (400 per pair: 200 switches + 200
+The shared samples are already committed in `samples/` (800 per pair: 400 switches + 400
 non-switches, one position per conversation). **Everyone runs on these same files**, so
 results from Claude / GPT / Gemini are directly comparable.
 

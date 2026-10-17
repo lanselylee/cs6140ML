@@ -2,7 +2,7 @@
 Build the shared code-switching samples for 12 SwitchLingua X-English pairs.
 
   pip install -r requirements.txt
-  python cs_sample.py --data-dir data/SwitchLingua_text              # all 12 pairs, 400 each
+  python cs_sample.py --data-dir data/SwitchLingua_text              # all 12 pairs, 800 each
   python cs_sample.py --data-dir data/SwitchLingua_text --pairs fr hi  # just some pairs
 
 Writes samples/samples_<pair>.jsonl. Commit those files: every teammate (Claude, GPT,
@@ -350,7 +350,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-dir", default="data/SwitchLingua_text", help="folder with the SwitchLingua CSVs")
     ap.add_argument("--pairs", nargs="+", default=list(PAIRS), choices=list(PAIRS))
-    ap.add_argument("--n", type=int, default=400, help="samples per pair (half switches)")
+    ap.add_argument("--n", type=int, default=800, help="samples per pair (half switches)")
     ap.add_argument("--min-context", type=int, default=5, help="minimum prefix length in tokens")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args(argv)
