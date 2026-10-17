@@ -27,3 +27,6 @@ logs/
 
 # Raw dataset CSVs (download SwitchLingua yourself)
 *.csv
+
+# Local copy of the SwitchLingua dataset
+data/SwitchLingua_text/

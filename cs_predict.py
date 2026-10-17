@@ -1,16 +1,17 @@
 """
-Prefix-only code-switching prediction with LLM APIs (SwitchLingua zh-en / ja-en).
+Prefix-only code-switching prediction with LLM APIs (SwitchLingua, 12 X-English pairs:
+zh ja ko ar ru fr de es it ms tl hi).
 
 Three steps:
-  1. sample   : build token-level labels from raw text, sample positions -> samples_*.jsonl
+  1. sample   : label tokens, draw balanced positions (cs_sample.py)    -> samples/samples_*.jsonl
   2. run      : ask a model at each sampled position (prefix only)      -> preds/preds_*.jsonl
   3. eval     : compute Switch F1 (+ duration macro-F1)                 -> printed table
 
 Usage:
   pip install -r requirements.txt
 
-  # 1. sample ONCE, commit samples_*.jsonl so every teammate scores the exact same positions
-  python cs_predict.py sample --zh Chinese_eng.csv --ja Japanese_eng.csv --n 1000
+  # 1. sample ONCE (already done - samples/ is committed, so you can skip this)
+  python cs_predict.py sample --data-dir data/SwitchLingua_text
 
   # 2. run: Claude (Anthropic SDK)
   export ANTHROPIC_API_KEY=sk-ant-...
@@ -29,22 +30,14 @@ Usage:
   # 3. eval
   python cs_predict.py eval --model claude-opus-5-5
 
-Token definition (keep this identical across teammates):
-  - each Chinese / Japanese character (Han, Hiragana, Katakana) = 1 token
-  - each English word (letters, internal apostrophe allowed) = 1 token
-  - punctuation, digits, whitespace are NOT tokens
-Multi-turn conversations are joined into one stream (turns separated by a newline),
-so earlier turns are part of the prefix and switches across turn boundaries count.
+Token definition and language labels: see cs_sample.py.
 """
 
-import argparse, ast, asyncio, json, os, random, re
-import pandas as pd
+import argparse, asyncio, json, os, re
 
-TOKEN_RE = re.compile(
-    r"[A-Za-z]+(?:['’][A-Za-z]+)*"
-    r"|[一-鿿㐀-䶿぀-ゟ゠-ヿ]"
-)
-PAIR_NAME = {"zh": "Chinese", "ja": "Japanese"}
+
+from cs_sample import CHAR_TOKEN_PAIRS, PAIRS, sample_path
+
 PRED_DIR = "preds"
 
 
@@ -58,80 +51,11 @@ def read_jsonl(path):
         return [json.loads(l) for l in f if l.strip()]
 
 
-# ---------------------------------------------------------------- step 1: labels + sampling
-def parse_turns(raw):
-    """data_generation_result is a stringified list of turns (a few rows are dicts)."""
-    try:
-        obj = ast.literal_eval(raw)
-    except Exception:
-        return [str(raw)]
-    if isinstance(obj, str):
-        return [obj]
-    turns = []
-    for t in obj:
-        if isinstance(t, dict):
-            turns.extend(str(v) for v in t.values())
-        else:
-            turns.append(str(t))
-    return turns
-
-
-def tokenize(text, pair):
-    toks = []
-    for m in TOKEN_RE.finditer(text):
-        lang = "en" if m.group()[0].isascii() else pair
-        toks.append({"tok": m.group(), "lang": lang, "end": m.end()})
-    return toks
-
-
-def duration_bin(n):
-    return "1-2" if n <= 2 else ("3-6" if n <= 6 else "7+")
-
-
-def build_positions(df, pair):
-    """Every position t that has a next token. Label = does token t+1 change language."""
-    rows = []
-    for conv_id, raw in enumerate(df["data_generation_result"]):
-        text = "\n".join(t.strip() for t in parse_turns(raw))
-        toks = tokenize(text, pair)
-        for t in range(len(toks) - 1):
-            switch = toks[t + 1]["lang"] != toks[t]["lang"]
-            dur = None
-            if switch:
-                new_lang, k = toks[t + 1]["lang"], t + 1
-                while k < len(toks) and toks[k]["lang"] == new_lang:
-                    k += 1
-                dur = duration_bin(k - (t + 1))
-            rows.append({
-                "pair": pair, "conv_id": conv_id, "t": t,
-                "prefix": text[: toks[t]["end"]],          # cut right after token t
-                "cur_token": toks[t]["tok"], "cur_lang": toks[t]["lang"],
-                "label_switch": int(switch), "label_duration": dur,
-            })
-    return rows
-
-
-def cmd_sample(a):
-    random.seed(a.seed)
-    for pair, path in (("zh", a.zh), ("ja", a.ja)):
-        rows = build_positions(pd.read_csv(path), pair)
-        # natural distribution: positions sampled uniformly, so F1 reflects the real switch rate
-        sample = random.sample(rows, min(a.n, len(rows)))
-        out = f"samples_{pair}.jsonl"
-        with open(out, "w", encoding="utf-8") as f:
-            for r in sample:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        pos = sum(r["label_switch"] for r in sample)
-        print(f"{pair}: {len(rows):,} positions total, sampled {len(sample)} "
-              f"({pos} switches, {pos/len(sample):.1%}) -> {out}")
-
-
 # ---------------------------------------------------------------- step 2: ask the model
 SYSTEM = """You are evaluating code-switching in {name}-English text.
 You see a text PREFIX that stops exactly after the current token. You cannot see anything after it.
 
-Token definition: every {name} character is one token; every English word is one token;
-punctuation, digits and whitespace are ignored.
+Token definition: {token_rule}; punctuation, digits and whitespace are ignored.
 
 Predict:
 1. switch: will the NEXT token be in a different language from the current token?
@@ -207,7 +131,7 @@ def make_caller(a):
 
 
 async def run_pair(call, a, pair):
-    src, out = f"samples_{pair}.jsonl", pred_path(pair, a.model)
+    src, out = sample_path(pair), pred_path(pair, a.model)
     samples = read_jsonl(src)
     done = set()
     if os.path.exists(out):                         # resume support
@@ -215,7 +139,9 @@ async def run_pair(call, a, pair):
     todo = [s for s in samples if (s["conv_id"], s["t"]) not in done]
     print(f"{pair}: {len(todo)} to run ({len(done)} already done) -> {out}")
     sem, lock = asyncio.Semaphore(a.concurrency), asyncio.Lock()
-    name = PAIR_NAME[pair]
+    name = PAIRS[pair][0]
+    token_rule = (f"every {name} character is one token; every English word is one token"
+                  if pair in CHAR_TOKEN_PAIRS else f"every word ({name} or English) is one token")
     failed = 0
 
     async def one(s):
@@ -223,7 +149,7 @@ async def run_pair(call, a, pair):
         async with sem:
             for attempt in range(5):
                 try:
-                    text, stop = await call(SYSTEM.format(name=name), USER.format(
+                    text, stop = await call(SYSTEM.format(name=name, token_rule=token_rule), USER.format(
                         prefix=s["prefix"], tok=s["cur_token"],
                         lang=name if s["cur_lang"] != "en" else "English"))
                     break
@@ -266,7 +192,7 @@ def cmd_eval(a):
     all_y, all_p, res = [], [], {}
     for pair in a.pairs:
         recs = read_jsonl(pred_path(pair, a.model))
-        missing = len(read_jsonl(f"samples_{pair}.jsonl")) - len(recs)
+        missing = len(read_jsonl(sample_path(pair))) - len(recs)
         y = [r["label_switch"] for r in recs]; p = [r["pred_switch"] for r in recs]
         all_y += y; all_p += p
         tp = [r for r in recs if r["label_switch"] and r["pred_switch"]]
@@ -281,7 +207,7 @@ def cmd_eval(a):
     print(f"{'pair':6}{'F1':>8}{'P':>8}{'R':>8}{'n':>7}{'pos':>6}{'bad':>5}{'miss':>6}{'durF1':>8}")
     for pair, (f, pr, rc, n, pos, bad, miss, d) in res.items():
         print(f"{pair:6}{f:8.2%}{pr:8.2%}{rc:8.2%}{n:7}{pos:6}{bad:5}{miss:6}{d:8.2%}")
-    print(f"{'all':6}{f1_score(all_y, all_p, zero_division=0):8.2%}   (pooled over both pairs)")
+    print(f"{'all':6}{f1_score(all_y, all_p, zero_division=0):8.2%}   (pooled over all pairs)")
     print("durF1 = duration macro-F1 on correctly predicted switches; bad = unparseable replies "
           "(scored as no-switch); miss = samples with no prediction yet (not scored)")
 
@@ -289,13 +215,11 @@ def cmd_eval(a):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("sample")
-    s.add_argument("--zh", default="Chinese_eng.csv"); s.add_argument("--ja", default="Japanese_eng.csv")
-    s.add_argument("--n", type=int, default=1000); s.add_argument("--seed", type=int, default=42)
+    sub.add_parser("sample", add_help=False)    # arguments are parsed by cs_sample.py
     for name in ("run", "eval"):
         p = sub.add_parser(name)
         p.add_argument("--model", default="claude-opus-5-5")
-        p.add_argument("--pairs", nargs="+", default=["zh", "ja"])
+        p.add_argument("--pairs", nargs="+", default=list(PAIRS), choices=list(PAIRS))
         if name == "run":
             p.add_argument("--provider", choices=["anthropic", "openai"], default="anthropic",
                            help="'openai' = any OpenAI-compatible chat completions API")
@@ -309,5 +233,10 @@ if __name__ == "__main__":
             p.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], default=None,
                            help="Claude effort level (provider=anthropic)")
             p.add_argument("--concurrency", type=int, default=8)
-    a = ap.parse_args()
-    {"sample": cmd_sample, "run": cmd_run, "eval": cmd_eval}[a.cmd](a)
+    a, rest = ap.parse_known_args()
+    if a.cmd == "sample":
+        import cs_sample
+        cs_sample.main(rest)
+    else:
+        ap.parse_args()                         # reject unknown arguments for run / eval
+        {"run": cmd_run, "eval": cmd_eval}[a.cmd](a)
