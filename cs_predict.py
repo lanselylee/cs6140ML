@@ -17,6 +17,9 @@ Usage:
   export ANTHROPIC_API_KEY=sk-ant-...
   python cs_predict.py run --provider anthropic --model claude-opus-5-5 --effort low
 
+  # 2. run: Claude via Claude Code on your Claude Pro/Max subscription (no API key)
+  python cs_predict.py run --provider claude-cli --model claude-opus-5-5 --effort low
+
   # 2. run: any OpenAI-compatible API (OpenAI, DeepSeek, Qwen, Gemini, OpenRouter ...)
   export OPENAI_API_KEY=sk-...
   python cs_predict.py run --provider openai --model gpt-4o --temperature 0
@@ -90,8 +93,50 @@ class Fatal(Exception):
     """Non-retryable error (bad key, unknown model, unsupported parameter)."""
 
 
+CLI_LIMIT_WORDS = ("usage limit", "rate limit", "limit reached", "credit balance", "not logged in",
+                   "please run /login", "invalid api key")
+
+
+def make_claude_cli_caller(a):
+    """Claude via the Claude Code CLI (`claude -p`), billed to the logged-in Claude subscription
+    instead of an API key. Our SYSTEM prompt replaces Claude Code's; tools, MCP servers,
+    skills, settings and session files are all turned off."""
+    import shutil, tempfile
+    exe = shutil.which("claude")
+    if not exe:
+        raise SystemExit("`claude` (Claude Code CLI) not found on PATH")
+    workdir = tempfile.mkdtemp(prefix="cs_predict_")   # empty dir: no CLAUDE.md gets picked up
+    base = [exe, "-p", "--model", a.model, "--output-format", "json", "--tools", "",
+            "--strict-mcp-config", "--disable-slash-commands", "--setting-sources", "",
+            "--no-session-persistence"] + (["--effort", a.effort] if a.effort else [])
+
+    async def call(system, user):
+        proc = await asyncio.create_subprocess_exec(
+            *base, "--system-prompt", system, cwd=workdir,
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        try:
+            out, err = await asyncio.wait_for(proc.communicate(user.encode("utf-8")), timeout=300)
+        except asyncio.TimeoutError:
+            proc.kill()
+            raise
+        try:
+            d = json.loads(out)
+        except ValueError:
+            d = {"is_error": True, "result": (err or out).decode("utf-8", "replace")[-500:]}
+        if proc.returncode or d.get("is_error"):
+            msg = str(d.get("result") or err.decode("utf-8", "replace")[-500:])
+            if any(w in msg.lower() for w in CLI_LIMIT_WORDS):
+                # stop instead of burning retries; rerun the same command later, it resumes
+                raise Fatal(RuntimeError(msg)) from RuntimeError(msg)
+            raise RuntimeError(msg)
+        return d.get("result") or "", d.get("stop_reason") or d.get("subtype")
+    return call
+
+
 def make_caller(a):
     """Return an async fn(system, user) -> (text, stop_reason) for the chosen provider."""
+    if a.provider == "claude-cli":
+        return make_claude_cli_caller(a)
     if a.provider == "anthropic":
         import anthropic
         client = anthropic.AsyncAnthropic(max_retries=0)       # we retry ourselves below
@@ -136,6 +181,8 @@ async def run_pair(call, a, pair):
     done = set()
     if os.path.exists(out):                         # resume support
         done = {(d["conv_id"], d["t"]) for d in read_jsonl(out)}
+    if a.limit:                                     # pilot runs: first N samples of each pair
+        samples = samples[: a.limit]
     todo = [s for s in samples if (s["conv_id"], s["t"]) not in done]
     print(f"{pair}: {len(todo)} to run ({len(done)} already done) -> {out}")
     sem, lock = asyncio.Semaphore(a.concurrency), asyncio.Lock()
@@ -221,8 +268,9 @@ if __name__ == "__main__":
         p.add_argument("--model", default="claude-opus-5-5")
         p.add_argument("--pairs", nargs="+", default=list(PAIRS), choices=list(PAIRS))
         if name == "run":
-            p.add_argument("--provider", choices=["anthropic", "openai"], default="anthropic",
-                           help="'openai' = any OpenAI-compatible chat completions API")
+            p.add_argument("--provider", choices=["anthropic", "openai", "claude-cli"], default="anthropic",
+                           help="'openai' = any OpenAI-compatible chat completions API; "
+                                "'claude-cli' = Claude Code CLI on your Claude subscription (no API key)")
             p.add_argument("--base-url", default=None, help="OpenAI-compatible endpoint (provider=openai)")
             p.add_argument("--api-key-env", default="OPENAI_API_KEY",
                            help="env var holding the key (provider=openai)")
@@ -231,8 +279,10 @@ if __name__ == "__main__":
             p.add_argument("--temperature", type=float, default=None,
                            help="omitted by default; newer Claude models reject it")
             p.add_argument("--effort", choices=["low", "medium", "high", "xhigh", "max"], default=None,
-                           help="Claude effort level (provider=anthropic)")
+                           help="Claude effort level (provider=anthropic / claude-cli)")
             p.add_argument("--concurrency", type=int, default=8)
+            p.add_argument("--limit", type=int, default=None,
+                           help="only run the first N samples of each pair (pilot runs)")
     a, rest = ap.parse_known_args()
     if a.cmd == "sample":
         import cs_sample
