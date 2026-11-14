@@ -328,6 +328,40 @@ def sample_pair(pair, texts, labeller, n, min_context, seed):
     return sample, stats
 
 
+def fewshot_path(pair):
+    return os.path.join(SAMPLE_DIR, f"fewshot_{pair}.jsonl")
+
+
+def draw_fewshot(pair, texts, labeller, test, per_cell=2, min_context=5, max_chars=300, seed=7):
+    """In-context examples from conversations that are NOT in the test sample (by id and text).
+    per_cell examples for each of: switch X->EN, switch EN->X, stay in X, stay in EN.
+    Prefixes are capped at max_chars to keep the prompt short."""
+    rng = random.Random(f"fewshot-{seed}-{pair}")
+    test_ids = {r["conv_id"] for r in test}
+    test_texts = {texts[i] for i in test_ids}
+    order = [i for i in range(len(texts)) if i not in test_ids and texts[i] and texts[i] not in test_texts]
+    rng.shuffle(order)
+    cells = {("x", 1): [], ("en", 1): [], ("x", 0): [], ("en", 0): []}
+    for conv_id in order:
+        if all(len(v) >= per_cell for v in cells.values()):
+            break
+        text = texts[conv_id]
+        toks = tokenize(text)
+        labels = labeller(text, toks)
+        cands = [(t, sw) for t, sw in candidates(toks, labels, min_context) if toks[t]["end"] <= max_chars]
+        rng.shuffle(cands)
+        for t, sw in cands:
+            key = ("en" if labels[t][0] == "en" else "x", int(sw))
+            if len(cells[key]) < per_cell:
+                cells[key].append(make_record(pair, conv_id, text, toks, labels, t))
+                break                                    # at most one example per conversation
+    out = [r for v in cells.values() for r in v]
+    if len(out) < 4 * per_cell:
+        raise SystemExit(f"{pair}: only {len(out)} few-shot examples found")
+    rng.shuffle(out)
+    return out
+
+
 def read_texts(data_dir, pair):
     df = pd.read_csv(os.path.join(data_dir, PAIRS[pair][1]), usecols=["data_generation_result"])
     return [conversation_text(raw) if isinstance(raw, str) else "" for raw in df["data_generation_result"]]
@@ -353,7 +387,21 @@ def main(argv=None):
     ap.add_argument("--n", type=int, default=800, help="samples per pair (half switches)")
     ap.add_argument("--min-context", type=int, default=5, help="minimum prefix length in tokens")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--fewshot", action="store_true",
+                    help="instead of sampling, draw in-context examples from conversations outside samples/")
     a = ap.parse_args(argv)
+
+    if a.fewshot:
+        for pair in a.pairs:
+            texts = read_texts(a.data_dir, pair)
+            with open(sample_path(pair), encoding="utf-8") as f:
+                test = [json.loads(l) for l in f if l.strip()]
+            ex = draw_fewshot(pair, texts, make_labeller(pair, a.data_dir, texts), test)
+            with open(fewshot_path(pair), "w", encoding="utf-8") as f:
+                for r in ex:
+                    f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            print(f"{pair}: {len(ex)} few-shot examples -> {fewshot_path(pair)}")
+        return
 
     os.makedirs(SAMPLE_DIR, exist_ok=True)
     for pair in a.pairs:

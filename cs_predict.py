@@ -39,7 +39,7 @@ Token definition and language labels: see cs_sample.py.
 import argparse, asyncio, json, os, re
 
 
-from cs_sample import CHAR_TOKEN_PAIRS, PAIRS, sample_path
+from cs_sample import CHAR_TOKEN_PAIRS, PAIRS, fewshot_path, sample_path
 
 PRED_DIR = "preds"
 
@@ -88,6 +88,18 @@ USER = """Prefix:
 {prefix}
 >>>
 Current token: "{tok}" (language: {lang})"""
+
+
+def fewshot_block(pair, name):
+    """Labelled examples drawn from conversations outside the test set (cs_sample.py --fewshot)."""
+    parts = []
+    for i, r in enumerate(read_jsonl(fewshot_path(pair)), 1):
+        ans = json.dumps({"switch": bool(r["label_switch"]), "duration": r["label_duration"]})
+        parts.append(f"Example {i}\n" + USER.format(
+            prefix=r["prefix"], tok=r["cur_token"],
+            lang=name if r["cur_lang"] != "en" else "English") + f"\nAnswer: {ans}")
+    return ("\n\nLabelled examples from the same corpus (switches in both directions are common):\n\n"
+            + "\n\n".join(parts))
 
 
 def parse_reply(text):
@@ -231,6 +243,8 @@ async def run_pair(call, a, pair):
                   if pair in CHAR_TOKEN_PAIRS else f"every word ({name} or English) is one token")
     failed = 0
     system = (SYSTEM_PROB if a.method == "prob" else SYSTEM).format(name=name, token_rule=token_rule)
+    if a.method == "fewshot":
+        system += fewshot_block(pair, name)
 
     async def one(s):
         nonlocal failed
@@ -363,8 +377,9 @@ if __name__ == "__main__":
         p = sub.add_parser(name)
         p.add_argument("--model", default="claude-opus-5-5")
         p.add_argument("--pairs", nargs="+", default=list(PAIRS), choices=list(PAIRS))
-        p.add_argument("--method", choices=["base", "prob"], default="base",
-                       help="base = yes/no prompt; prob = probability prompt + cross-validated threshold")
+        p.add_argument("--method", choices=["base", "prob", "fewshot"], default="base",
+                       help="base = yes/no prompt; prob = probability prompt + cross-validated threshold; "
+                            "fewshot = yes/no prompt + 8 labelled examples (samples/fewshot_*.jsonl)")
         if name == "run":
             p.add_argument("--provider", choices=["anthropic", "openai", "claude-cli"], default="anthropic",
                            help="'openai' = any OpenAI-compatible chat completions API; "
