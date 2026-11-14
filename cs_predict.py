@@ -44,9 +44,10 @@ from cs_sample import CHAR_TOKEN_PAIRS, PAIRS, sample_path
 PRED_DIR = "preds"
 
 
-def pred_path(pair, model):
+def pred_path(pair, model, method="base"):
     # model names like "openai/gpt-4o" (OpenRouter) would otherwise create sub-directories
-    return os.path.join(PRED_DIR, f"preds_{pair}_{re.sub(r'[^A-Za-z0-9._-]', '_', model)}.jsonl")
+    tag = re.sub(r'[^A-Za-z0-9._-]', '_', model) + ("" if method == "base" else f"_{method}")
+    return os.path.join(PRED_DIR, f"preds_{pair}_{tag}.jsonl")
 
 
 def read_jsonl(path):
@@ -66,6 +67,21 @@ Predict:
    One of "1-2", "3-6", "7+". If switch is false, use null.
 
 Reply with only a JSON object, e.g. {{"switch": true, "duration": "3-6"}} or {{"switch": false, "duration": null}}."""
+
+# method "prob": same task, but the model gives a probability; the decision threshold is
+# chosen afterwards (cross-validated in eval) instead of the model's own yes/no cut-off.
+SYSTEM_PROB = """You are evaluating code-switching in {name}-English text.
+You see a text PREFIX that stops exactly after the current token. You cannot see anything after it.
+
+Token definition: {token_rule}; punctuation, digits and whitespace are ignored.
+
+Predict:
+1. p_switch: the probability (0.0 to 1.0, two decimals) that the NEXT token is in a different
+   language from the current token. Give a calibrated probability, not a yes/no.
+2. duration: if a switch happens, how many consecutive tokens will the new-language segment last?
+   One of "1-2", "3-6", "7+".
+
+Reply with only a JSON object, e.g. {{"p_switch": 0.35, "duration": "1-2"}}."""
 
 USER = """Prefix:
 <<<
@@ -87,6 +103,20 @@ def parse_reply(text):
     return (int(bool(sw)) if sw is not None else 0,
             dur if dur in ("1-2", "3-6", "7+") else None,
             sw is not None)
+
+
+def parse_prob(text):
+    m = re.search(r"\{.*?\}", text, re.S)
+    try:
+        obj = json.loads(m.group()) if m else {}
+    except Exception:
+        obj = {}
+    try:
+        p = min(max(float(obj.get("p_switch")), 0.0), 1.0)
+    except (TypeError, ValueError):
+        p = None
+    dur = obj.get("duration")
+    return p, dur if dur in ("1-2", "3-6", "7+") else None
 
 
 class Fatal(Exception):
@@ -129,7 +159,11 @@ def make_claude_cli_caller(a):
                 # stop instead of burning retries; rerun the same command later, it resumes
                 raise Fatal(RuntimeError(msg)) from RuntimeError(msg)
             raise RuntimeError(msg)
-        return d.get("result") or "", d.get("stop_reason") or d.get("subtype")
+        u = d.get("usage") or {}
+        usage = {k: u.get(k, 0) for k in ("input_tokens", "cache_creation_input_tokens",
+                                          "cache_read_input_tokens", "output_tokens")}
+        usage["cost_usd"] = d.get("total_cost_usd")    # API-equivalent price, not billed on subscription
+        return d.get("result") or "", d.get("stop_reason") or d.get("subtype"), usage
     return call
 
 
@@ -152,7 +186,11 @@ def make_caller(a):
             except (anthropic.BadRequestError, anthropic.AuthenticationError,
                     anthropic.PermissionDeniedError, anthropic.NotFoundError) as e:
                 raise Fatal(e) from e
-            return "".join(b.text for b in resp.content if b.type == "text"), resp.stop_reason
+            u = resp.usage
+            usage = {"input_tokens": u.input_tokens, "output_tokens": u.output_tokens,
+                     "cache_creation_input_tokens": u.cache_creation_input_tokens or 0,
+                     "cache_read_input_tokens": u.cache_read_input_tokens or 0}
+            return "".join(b.text for b in resp.content if b.type == "text"), resp.stop_reason, usage
         return call
 
     import openai
@@ -171,12 +209,14 @@ def make_caller(a):
                 openai.PermissionDeniedError, openai.NotFoundError) as e:
             raise Fatal(e) from e
         ch = resp.choices[0]
-        return ch.message.content or "", ch.finish_reason
+        u = resp.usage
+        usage = {"input_tokens": u.prompt_tokens, "output_tokens": u.completion_tokens} if u else {}
+        return ch.message.content or "", ch.finish_reason, usage
     return call
 
 
 async def run_pair(call, a, pair):
-    src, out = sample_path(pair), pred_path(pair, a.model)
+    src, out = sample_path(pair), pred_path(pair, a.model, a.method)
     samples = read_jsonl(src)
     done = set()
     if os.path.exists(out):                         # resume support
@@ -190,13 +230,14 @@ async def run_pair(call, a, pair):
     token_rule = (f"every {name} character is one token; every English word is one token"
                   if pair in CHAR_TOKEN_PAIRS else f"every word ({name} or English) is one token")
     failed = 0
+    system = (SYSTEM_PROB if a.method == "prob" else SYSTEM).format(name=name, token_rule=token_rule)
 
     async def one(s):
         nonlocal failed
         async with sem:
             for attempt in range(5):
                 try:
-                    text, stop = await call(SYSTEM.format(name=name, token_rule=token_rule), USER.format(
+                    text, stop, usage = await call(system, USER.format(
                         prefix=s["prefix"], tok=s["cur_token"],
                         lang=name if s["cur_lang"] != "en" else "English"))
                     break
@@ -207,10 +248,15 @@ async def run_pair(call, a, pair):
                         failed += 1
                         print("failed:", s["conv_id"], s["t"], e); return
                     await asyncio.sleep(2 ** attempt)
-            sw, dur, ok = parse_reply(text)
-            rec = {**{k: s[k] for k in ("conv_id", "t", "label_switch", "label_duration")},
-                   "pred_switch": sw, "pred_duration": dur, "parsed": ok,
-                   "stop_reason": stop, "raw": text}
+            rec = {k: s[k] for k in ("conv_id", "t", "label_switch", "label_duration")}
+            if a.method == "prob":
+                p, dur = parse_prob(text)
+                rec.update(p_switch=p, pred_switch=int(p is not None and p >= 0.5),
+                           pred_duration=dur, parsed=p is not None)
+            else:
+                sw, dur, ok = parse_reply(text)
+                rec.update(pred_switch=sw, pred_duration=dur, parsed=ok)
+            rec.update(stop_reason=stop, usage=usage, raw=text)
             async with lock:
                 with open(out, "a", encoding="utf-8") as f:
                     f.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -234,11 +280,50 @@ def cmd_run(a):
 
 
 # ---------------------------------------------------------------- step 3: metrics
+def cv_threshold_preds(y, p, folds=5, seed=0):
+    """Pick the F1-best threshold on k-1 folds, apply it to the held-out fold.
+    Every sample is scored with a threshold that never saw its own label."""
+    import numpy as np
+    from sklearn.metrics import f1_score
+    y, p = np.asarray(y), np.asarray(p)
+    idx = np.random.default_rng(seed).permutation(len(y))
+    out, ths = np.zeros(len(y), int), []
+    grid = np.round(np.arange(0.0, 1.0001, 0.01), 2)
+    for k in range(folds):
+        test = idx[k::folds]; train = np.setdiff1d(idx, test)
+        th = max(grid, key=lambda g: f1_score(y[train], p[train] >= g, zero_division=0))
+        out[test] = p[test] >= th; ths.append(float(th))
+    return out.tolist(), ths
+
+
+def token_stats(recs):
+    us = [r["usage"] for r in recs if r.get("usage")]
+    if not us:
+        return None
+    n = len(us)
+    inp = sum(u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+              + u.get("cache_read_input_tokens", 0) for u in us) / n
+    out = sum(u.get("output_tokens", 0) for u in us) / n
+    cost = [u["cost_usd"] for u in us if u.get("cost_usd") is not None]
+    return inp, out, (sum(cost) / len(cost) if cost else None), n
+
+
 def cmd_eval(a):
-    from sklearn.metrics import f1_score, precision_score, recall_score
+    from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
     all_y, all_p, res = [], [], {}
+    all_recs = []
     for pair in a.pairs:
-        recs = read_jsonl(pred_path(pair, a.model))
+        recs = read_jsonl(pred_path(pair, a.model, a.method))
+        all_recs += recs
+        if a.method == "prob":
+            ok = [r for r in recs if r["p_switch"] is not None]
+            cv, ths = cv_threshold_preds([r["label_switch"] for r in ok], [r["p_switch"] for r in ok])
+            for r, c in zip(ok, cv):
+                r["pred_switch"] = c
+            ys = [r["label_switch"] for r in ok]
+            print(f"{pair}: AUROC {roc_auc_score(ys, [r['p_switch'] for r in ok]):.3f}  "
+                  f"F1@0.5 {f1_score(ys, [r['p_switch'] >= 0.5 for r in ok]):.2%}  "
+                  f"CV thresholds {ths}")
         missing = len(read_jsonl(sample_path(pair))) - len(recs)
         y = [r["label_switch"] for r in recs]; p = [r["pred_switch"] for r in recs]
         all_y += y; all_p += p
@@ -254,7 +339,18 @@ def cmd_eval(a):
     print(f"{'pair':6}{'F1':>8}{'P':>8}{'R':>8}{'n':>7}{'pos':>6}{'bad':>5}{'miss':>6}{'durF1':>8}")
     for pair, (f, pr, rc, n, pos, bad, miss, d) in res.items():
         print(f"{pair:6}{f:8.2%}{pr:8.2%}{rc:8.2%}{n:7}{pos:6}{bad:5}{miss:6}{d:8.2%}")
-    print(f"{'all':6}{f1_score(all_y, all_p, zero_division=0):8.2%}   (pooled over all pairs)")
+    print(f"{'all':6}{f1_score(all_y, all_p, zero_division=0):8.2%}{precision_score(all_y, all_p):8.2%}"
+          f"{recall_score(all_y, all_p):8.2%}   acc {sum(y == p for y, p in zip(all_y, all_p)) / len(all_y):.2%}"
+          f"   (pooled over all pairs)")
+    if a.method == "prob":
+        ok = [r for r in all_recs if r["p_switch"] is not None]
+        print(f"pooled AUROC {roc_auc_score([r['label_switch'] for r in ok], [r['p_switch'] for r in ok]):.3f}"
+              f"  (F1/P/R above use 5-fold cross-validated thresholds)")
+    ts = token_stats(all_recs)
+    if ts:
+        inp, out, cost, n = ts
+        print(f"tokens/call (n={n} with usage): input {inp:.0f}  output {out:.0f}"
+              + (f"  API-equivalent ${cost:.5f}/call" if cost is not None else ""))
     print("durF1 = duration macro-F1 on correctly predicted switches; bad = unparseable replies "
           "(scored as no-switch); miss = samples with no prediction yet (not scored)")
 
@@ -267,6 +363,8 @@ if __name__ == "__main__":
         p = sub.add_parser(name)
         p.add_argument("--model", default="claude-opus-5-5")
         p.add_argument("--pairs", nargs="+", default=list(PAIRS), choices=list(PAIRS))
+        p.add_argument("--method", choices=["base", "prob"], default="base",
+                       help="base = yes/no prompt; prob = probability prompt + cross-validated threshold")
         if name == "run":
             p.add_argument("--provider", choices=["anthropic", "openai", "claude-cli"], default="anthropic",
                            help="'openai' = any OpenAI-compatible chat completions API; "
