@@ -1,16 +1,24 @@
 # cs6140ML
 
-CS6140 Machine Learning course project: training a large language model for language prediction (next-token prediction).
+CS6140 Machine Learning course project: a benchmark for **code-switching prediction**. Given only
+a text prefix, can a language model tell whether the next token switches language?
+Data: SwitchLingua, 12 X-English pairs.
+
+Status: round 1-2 evaluated a commercial LLM (Claude) as a pilot; the project is now moving to
+open-weight models (Qwen) on all pairs.
 
 ## Project Structure
 
 ```
 cs6140ML/
-├── data/          # datasets (raw data is not committed)
-├── src/           # model, training and evaluation code
-├── notebooks/     # experiments and analysis
-├── checkpoints/   # saved model weights (not committed)
-└── requirements.txt
+├── cs_sample.py        # sampling + automatic language labeling (12 pairs)
+├── cs_predict.py       # run an LLM on the samples, then score it
+├── cs_extrapolate.py   # estimate full-data scores from the balanced samples
+├── samples/            # shared balanced samples (800 per pair) + few-shot examples
+├── preds/              # model predictions (jsonl)
+├── results/            # result tables per model / method
+├── streaming-code-switching.ipynb   # notebook experiments
+└── data/               # raw SwitchLingua data (not committed)
 ```
 
 ## Setup
