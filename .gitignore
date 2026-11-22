@@ -30,3 +30,9 @@ logs/
 
 # Local copy of the SwitchLingua dataset
 data/SwitchLingua_text/
+
+# Shared Phase 1 data packages from teammates
+data/Shared_Phase1_*/
+kaggle/upload/
+kaggle/*.zip
+runs/
