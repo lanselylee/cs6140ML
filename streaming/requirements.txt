@@ -1,0 +1,13 @@
+# streaming/ (causal dual-head training, evaluation, demo)
+torch
+transformers
+numpy
+pandas
+scikit-learn
+matplotlib
+tabulate
+# demo.py word segmentation, same versions as Phase 1
+regex
+jieba
+fugashi==1.5.2
+unidic-lite==1.0.8

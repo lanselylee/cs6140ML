@@ -12,6 +12,7 @@ hyper-parameters on the shared Phase 1 data (`Shared_Phase1_Common12_v4`, 12 Xâ€
 | `data.py` | Loads windows, pads, length-bucketed batches. |
 | `train.py` | Training loop, hyper-parameters matched to the teammate's XLM-R baseline (micro-batch 4 Ã— accumulation 4, lr 2e-5, 3% warm-up, seed 6130, threshold 0.5, select by mean of val switch F1 and duration macro-F1). Writes `train_log.csv` (total / switch / duration loss), `val_log.csv`, `val_pairs.jsonl`, `best.pt`, `meta.json`. |
 | `predict.py` | One row per word in `cs_eval.py` format, scored with the group's unmodified `cs_eval.py`. Also reports the 2-type macro accuracy (inter + intra only). |
+| `demo.py` | Streaming simulation: reads text word by word and prints the next-word switch probability and the anticipated duration bin, running the model on the prefix only. Uses Phase 1's word segmentation (jieba / fugashi), verified to reproduce the training encoding on all 28,876 test instances. `python streaming/demo.py --run RUN --text "..."` (`--delay`, `--json`, stdin). |
 | `run_all.sh` | Trains one model (default mBERT), then predicts and scores val and test. |
 
 ## Data facts (checked 2026-11-22)
