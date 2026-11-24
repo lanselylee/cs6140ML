@@ -1,0 +1,6 @@
+9307 test records, 481277 positions, 2000 paired draws
+pooled F1 (mBERT - XLM-R)        +0.09 pp   95% CI [-0.11, +0.31]
+sigma (mBERT - XLM-R)            +0.47 pp   95% CI [+0.21, +0.73]
+pair-mean F1 (mBERT - XLM-R)     -0.08 pp   95% CI [-0.29, +0.13]
+sigma XLM-R                     +10.15 pp   95% CI [+9.67, +10.72]
+sigma mBERT                     +10.62 pp   95% CI [+10.12, +11.25]
