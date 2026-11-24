@@ -1,0 +1,17 @@
+{
+  "data": "outputs\\Shared_Phase1_Common12_v4",
+  "output": "causal_multitask\\runs\\xlmr_common12_word_v4",
+  "batch_size": 4,
+  "accumulation": 4,
+  "epochs": 3,
+  "lr": 2e-05,
+  "seed": 6130,
+  "save_every": 500,
+  "eval_every": 10000,
+  "resume": false,
+  "check": false,
+  "manifest_hash": "63c019af0149f906a99e0d9de1e8d52a65c7ded9c158ab3cdf241bf5226b328a",
+  "model": "FacebookAI/xlm-roberta-base",
+  "method": "v4 word endings only; repeated context ignored; joint switch/duration CE (-1); no LID input or punctuation fusion; switch probability>=0.5",
+  "selection": "Mean of validation switch positive F1 and duration three-class macro-F1"
+}
