@@ -1,0 +1,44 @@
+Loading weights:   0%|          | 0/197 [00:00<?, ?it/s]Loading weights: 100%|██████████| 197/197 [00:00<00:00, 2454.29it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: google-bert/bert-base-multilingual-cased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+bert.pooler.dense.weight                   | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+bert.pooler.dense.bias                     | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+wrote 478427 word rows -> /kaggle/working/runs/mbert/preds_val.csv (threshold 0.5)
+========================================================
+Model: google-bert/bert-base-multilingual-cased
+========================================================
+A. Performance metrics
+  1. Anticipatory F1          0.735
+  2. Duration Accuracy        0.658
+  3. Macro-Average Accuracy   0.960
+       Extra-sentential / Tag switching0.962
+       Intersentential         0.982
+       Intrasentential         0.937
+B. Variance analysis
+  1. Pair-specific F1
+       Arabic-English          0.761
+       Chinese-English         0.742
+       French-English          0.836
+       German-English          0.783
+       Hindi-English           0.704
+       Italian-English         0.806
+       Japanese-English        0.806
+       Korean-English          0.839
+       Malay-English           0.654
+       Philippines-English     0.446
+       Russian-English         0.684
+       Spanish-English         0.771
+  2. sigma_universality       0.104
+
+2-type macro accuracy (inter+intra only): 0.9595

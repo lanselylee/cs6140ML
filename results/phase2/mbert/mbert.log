@@ -1,0 +1,114 @@
+device=cuda amp=True model=google-bert/bert-base-multilingual-cased
+train windows=231347 val windows=28773
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/197 [00:00<?, ?it/s]Loading weights: 100%|██████████| 197/197 [00:00<00:00, 2555.98it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: google-bert/bert-base-multilingual-cased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+bert.pooler.dense.bias                     | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+bert.pooler.dense.weight                   | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+optimizer steps: 14460/epoch, 43380 total, warm-up 1301
+ep1 step 500/43380 loss 1.0686 (sw 0.1802 dur 0.8885) 121s, ETA 173 min
+ep1 step 1000/43380 loss 0.8905 (sw 0.1228 dur 0.7678) 238s, ETA 168 min
+ep1 step 1500/43380 loss 1.0068 (sw 0.1556 dur 0.8512) 355s, ETA 165 min
+ep1 step 2000/43380 loss 0.9220 (sw 0.1495 dur 0.7725) 471s, ETA 162 min
+ep1 step 2500/43380 loss 1.0147 (sw 0.1414 dur 0.8733) 587s, ETA 160 min
+ep1 step 3000/43380 loss 0.8269 (sw 0.1272 dur 0.6997) 703s, ETA 158 min
+ep1 step 3500/43380 loss 0.9130 (sw 0.1399 dur 0.7732) 820s, ETA 156 min
+ep1 step 4000/43380 loss 0.9088 (sw 0.1270 dur 0.7818) 936s, ETA 154 min
+ep1 step 4500/43380 loss 0.9443 (sw 0.1270 dur 0.8173) 1052s, ETA 152 min
+ep1 step 5000/43380 loss 0.9197 (sw 0.1298 dur 0.7898) 1169s, ETA 150 min
+ep1 step 5500/43380 loss 0.9167 (sw 0.1288 dur 0.7880) 1285s, ETA 148 min
+ep1 step 6000/43380 loss 0.8884 (sw 0.1169 dur 0.7715) 1401s, ETA 145 min
+ep1 step 6500/43380 loss 0.9366 (sw 0.1150 dur 0.8216) 1517s, ETA 143 min
+ep1 step 7000/43380 loss 0.9558 (sw 0.1414 dur 0.8145) 1633s, ETA 141 min
+ep1 step 7500/43380 loss 0.8791 (sw 0.1159 dur 0.7633) 1756s, ETA 140 min
+ep1 step 8000/43380 loss 0.9121 (sw 0.1341 dur 0.7780) 1878s, ETA 138 min
+ep1 step 8500/43380 loss 0.9246 (sw 0.1344 dur 0.7902) 1998s, ETA 137 min
+ep1 step 9000/43380 loss 0.8700 (sw 0.1196 dur 0.7503) 2118s, ETA 135 min
+ep1 step 9500/43380 loss 0.8690 (sw 0.1096 dur 0.7595) 2237s, ETA 133 min
+ep1 step 10000/43380 loss 0.8416 (sw 0.1174 dur 0.7241) 2352s, ETA 131 min
+VAL {"epoch": 1, "step": 10000, "switch_f1": 0.7185536387524277, "duration_acc": 0.6548770449634737, "duration_macro_f1": 0.5990361683974368, "selection_score": 0.6587949035749323, "pair_mean_f1": 0.7197333431872313, "pair_std_f1": 0.10779594118683898, "val_loss_switch": 0.12131519600404135, "val_loss_duration": 0.800880561162935, "n_positions": 478427, "switch_rate": 0.08125795575918583}
+ep1 step 10500/43380 loss 0.8984 (sw 0.1165 dur 0.7819) 2482s, ETA 130 min
+ep1 step 11000/43380 loss 0.8304 (sw 0.1276 dur 0.7029) 2598s, ETA 127 min
+ep1 step 11500/43380 loss 0.8574 (sw 0.1230 dur 0.7344) 2714s, ETA 125 min
+ep1 step 12000/43380 loss 0.9033 (sw 0.1306 dur 0.7727) 2828s, ETA 123 min
+ep1 step 12500/43380 loss 0.8658 (sw 0.1222 dur 0.7437) 2942s, ETA 121 min
+ep1 step 13000/43380 loss 0.8588 (sw 0.1185 dur 0.7403) 3060s, ETA 119 min
+ep1 step 13500/43380 loss 0.8323 (sw 0.1087 dur 0.7236) 3182s, ETA 117 min
+ep1 step 14000/43380 loss 0.8628 (sw 0.1232 dur 0.7396) 3302s, ETA 116 min
+VAL {"epoch": 1, "step": 14460, "switch_f1": 0.7290396923461384, "duration_acc": 0.6602531124601296, "duration_macro_f1": 0.6067016905417261, "selection_score": 0.6678706914439323, "pair_mean_f1": 0.7308420638453844, "pair_std_f1": 0.10118651615618787, "val_loss_switch": 0.11920611774203536, "val_loss_duration": 0.7753918519517082, "n_positions": 478427, "switch_rate": 0.08125795575918583}
+ep2 step 14500/43380 loss 0.8609 (sw 0.1121 dur 0.7489) 3436s, ETA 114 min
+ep2 step 15000/43380 loss 0.8308 (sw 0.1159 dur 0.7149) 3552s, ETA 112 min
+ep2 step 15500/43380 loss 0.8458 (sw 0.1152 dur 0.7306) 3672s, ETA 110 min
+ep2 step 16000/43380 loss 0.7961 (sw 0.1191 dur 0.6770) 3792s, ETA 108 min
+ep2 step 16500/43380 loss 0.9105 (sw 0.1245 dur 0.7859) 3913s, ETA 106 min
+ep2 step 17000/43380 loss 0.8050 (sw 0.1042 dur 0.7008) 4033s, ETA 104 min
+ep2 step 17500/43380 loss 0.8696 (sw 0.1153 dur 0.7542) 4149s, ETA 102 min
+ep2 step 18000/43380 loss 0.8136 (sw 0.1087 dur 0.7050) 4265s, ETA 100 min
+ep2 step 18500/43380 loss 0.8655 (sw 0.1207 dur 0.7448) 4379s, ETA 98 min
+ep2 step 19000/43380 loss 0.8637 (sw 0.1242 dur 0.7395) 4493s, ETA 96 min
+ep2 step 19500/43380 loss 0.8464 (sw 0.1310 dur 0.7153) 4606s, ETA 94 min
+ep2 step 20000/43380 loss 0.8552 (sw 0.1151 dur 0.7401) 4720s, ETA 92 min
+VAL {"epoch": 2, "step": 20000, "switch_f1": 0.727616300036062, "duration_acc": 0.6581952875810269, "duration_macro_f1": 0.5999283055371092, "selection_score": 0.6637723027865856, "pair_mean_f1": 0.7279239138520107, "pair_std_f1": 0.10954233477208429, "val_loss_switch": 0.11651848232652162, "val_loss_duration": 0.7768960292968059, "n_positions": 478427, "switch_rate": 0.08125795575918583}
+ep2 step 20500/43380 loss 0.8928 (sw 0.1131 dur 0.7797) 4854s, ETA 90 min
+ep2 step 21000/43380 loss 0.8723 (sw 0.1093 dur 0.7630) 4974s, ETA 88 min
+ep2 step 21500/43380 loss 0.8164 (sw 0.1029 dur 0.7136) 5092s, ETA 86 min
+ep2 step 22000/43380 loss 0.8358 (sw 0.1183 dur 0.7175) 5207s, ETA 84 min
+ep2 step 22500/43380 loss 0.8929 (sw 0.1216 dur 0.7713) 5323s, ETA 82 min
+ep2 step 23000/43380 loss 0.9194 (sw 0.1257 dur 0.7937) 5443s, ETA 80 min
+ep2 step 23500/43380 loss 0.8738 (sw 0.1127 dur 0.7612) 5562s, ETA 78 min
+ep2 step 24000/43380 loss 0.7864 (sw 0.1120 dur 0.6744) 5678s, ETA 76 min
+ep2 step 24500/43380 loss 0.9037 (sw 0.1321 dur 0.7716) 5794s, ETA 74 min
+ep2 step 25000/43380 loss 0.8310 (sw 0.1168 dur 0.7142) 5911s, ETA 72 min
+ep2 step 25500/43380 loss 0.8690 (sw 0.1191 dur 0.7499) 6030s, ETA 70 min
+ep2 step 26000/43380 loss 0.8708 (sw 0.1113 dur 0.7596) 6151s, ETA 69 min
+ep2 step 26500/43380 loss 0.8735 (sw 0.1120 dur 0.7615) 6274s, ETA 67 min
+ep2 step 27000/43380 loss 0.8363 (sw 0.1091 dur 0.7272) 6395s, ETA 65 min
+ep2 step 27500/43380 loss 0.8282 (sw 0.1222 dur 0.7060) 6516s, ETA 63 min
+ep2 step 28000/43380 loss 0.9217 (sw 0.1198 dur 0.8019) 6636s, ETA 61 min
+ep2 step 28500/43380 loss 0.8502 (sw 0.1153 dur 0.7349) 6759s, ETA 59 min
+VAL {"epoch": 2, "step": 28920, "switch_f1": 0.7338170035923083, "duration_acc": 0.6627996707480194, "duration_macro_f1": 0.6146670849912629, "selection_score": 0.6742420442917856, "pair_mean_f1": 0.734826739913955, "pair_std_f1": 0.10533427108753195, "val_loss_switch": 0.11542816489338348, "val_loss_duration": 0.7664536674249097, "n_positions": 478427, "switch_rate": 0.08125795575918583}
+ep3 step 29000/43380 loss 0.7677 (sw 0.1135 dur 0.6542) 6896s, ETA 57 min
+ep3 step 29500/43380 loss 0.8138 (sw 0.1151 dur 0.6987) 7017s, ETA 55 min
+ep3 step 30000/43380 loss 0.8038 (sw 0.1135 dur 0.6903) 7138s, ETA 53 min
+VAL {"epoch": 3, "step": 30000, "switch_f1": 0.7309927395177676, "duration_acc": 0.660330280893096, "duration_macro_f1": 0.6067799851341261, "selection_score": 0.6688863623259469, "pair_mean_f1": 0.7323856211114403, "pair_std_f1": 0.10579282586367433, "val_loss_switch": 0.11560664625953845, "val_loss_duration": 0.7872857935623152, "n_positions": 478427, "switch_rate": 0.08125795575918583}
+ep3 step 30500/43380 loss 0.7902 (sw 0.1056 dur 0.6846) 7269s, ETA 51 min
+ep3 step 31000/43380 loss 0.8052 (sw 0.1142 dur 0.6910) 7389s, ETA 49 min
+ep3 step 31500/43380 loss 0.7502 (sw 0.0952 dur 0.6550) 7509s, ETA 47 min
+ep3 step 32000/43380 loss 0.7682 (sw 0.1026 dur 0.6656) 7629s, ETA 45 min
+ep3 step 32500/43380 loss 0.8066 (sw 0.1182 dur 0.6884) 7749s, ETA 43 min
+ep3 step 33000/43380 loss 0.8091 (sw 0.1199 dur 0.6891) 7869s, ETA 41 min
+ep3 step 33500/43380 loss 0.7583 (sw 0.1119 dur 0.6464) 7989s, ETA 39 min
+ep3 step 34000/43380 loss 0.7862 (sw 0.1166 dur 0.6695) 8107s, ETA 37 min
+ep3 step 34500/43380 loss 0.8322 (sw 0.1230 dur 0.7092) 8227s, ETA 35 min
+ep3 step 35000/43380 loss 0.8089 (sw 0.1109 dur 0.6979) 8346s, ETA 33 min
+ep3 step 35500/43380 loss 0.7351 (sw 0.1087 dur 0.6263) 8466s, ETA 31 min
+ep3 step 36000/43380 loss 0.8074 (sw 0.1222 dur 0.6852) 8585s, ETA 29 min
+ep3 step 36500/43380 loss 0.7029 (sw 0.1039 dur 0.5990) 8701s, ETA 27 min
+ep3 step 37000/43380 loss 0.7045 (sw 0.1111 dur 0.5934) 8819s, ETA 25 min
+ep3 step 37500/43380 loss 0.7909 (sw 0.1199 dur 0.6710) 8939s, ETA 23 min
+ep3 step 38000/43380 loss 0.7969 (sw 0.1205 dur 0.6763) 9059s, ETA 21 min
+ep3 step 38500/43380 loss 0.7442 (sw 0.1016 dur 0.6426) 9178s, ETA 19 min
+ep3 step 39000/43380 loss 0.8037 (sw 0.1122 dur 0.6915) 9299s, ETA 17 min
+ep3 step 39500/43380 loss 0.7646 (sw 0.1184 dur 0.6462) 9418s, ETA 15 min
+ep3 step 40000/43380 loss 0.7638 (sw 0.1140 dur 0.6498) 9539s, ETA 13 min
+VAL {"epoch": 3, "step": 40000, "switch_f1": 0.7347813822284909, "duration_acc": 0.6581695647700381, "duration_macro_f1": 0.6200590330497726, "selection_score": 0.6774202076391318, "pair_mean_f1": 0.7360221493532656, "pair_std_f1": 0.10375809787682894, "val_loss_switch": 0.11495986417748742, "val_loss_duration": 0.7903556584306111, "n_positions": 478427, "switch_rate": 0.08125795575918583}
+ep3 step 40500/43380 loss 0.7667 (sw 0.1153 dur 0.6514) 9671s, ETA 11 min
+ep3 step 41000/43380 loss 0.7587 (sw 0.1035 dur 0.6552) 9789s, ETA 9 min
+ep3 step 41500/43380 loss 0.7359 (sw 0.1096 dur 0.6263) 9908s, ETA 7 min
+ep3 step 42000/43380 loss 0.7757 (sw 0.1206 dur 0.6551) 10027s, ETA 5 min
+ep3 step 42500/43380 loss 0.7655 (sw 0.1119 dur 0.6537) 10146s, ETA 4 min
+ep3 step 43000/43380 loss 0.8338 (sw 0.1271 dur 0.7067) 10268s, ETA 2 min
+VAL {"epoch": 3, "step": 43380, "switch_f1": 0.7352145233128489, "duration_acc": 0.6586325753678361, "duration_macro_f1": 0.6169653790495647, "selection_score": 0.6760899511812068, "pair_mean_f1": 0.7366503428979198, "pair_std_f1": 0.10275646746049089, "val_loss_switch": 0.11494986158353505, "val_loss_duration": 0.7900176672842758, "n_positions": 478427, "switch_rate": 0.08125795575918583}
+done. best selection score 0.6774 at epoch 3 step 40000

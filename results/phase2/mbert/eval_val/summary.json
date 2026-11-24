@@ -1,0 +1,27 @@
+{
+  "model": "google-bert/bert-base-multilingual-cased",
+  "anticipatory_f1": 0.7347813822284909,
+  "duration_accuracy": 0.6581695647700381,
+  "macro_average_accuracy": 0.9602170267450348,
+  "accuracy_by_type": {
+    "Extra-sentential / Tag switching": 0.9617176140051098,
+    "Intersentential": 0.9824290466110848,
+    "Intrasentential": 0.93650441961891
+  },
+  "f1_by_pair": {
+    "Arabic-English": 0.7614678899082569,
+    "Chinese-English": 0.7418371789290379,
+    "French-English": 0.8363095238095238,
+    "German-English": 0.7826887661141805,
+    "Hindi-English": 0.7044194253066711,
+    "Italian-English": 0.8057764755127669,
+    "Japanese-English": 0.8056631494590624,
+    "Korean-English": 0.8391451068616423,
+    "Malay-English": 0.6544839255499154,
+    "Philippines-English": 0.44565391387866177,
+    "Russian-English": 0.6837458888696555,
+    "Spanish-English": 0.7710745480398131
+  },
+  "sigma_universality": 0.10375809787682894,
+  "macro_accuracy_inter_intra_only": 0.9594667331149973
+}
